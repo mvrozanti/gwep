@@ -1,0 +1,55 @@
+#!/bin/bash
+
+usage() { 
+    echo "Usage: "$(basename "$0")" [OPTION]... PATTERN URL"
+    exit 1
+}
+
+exit_script() {
+    echo $WGET_DIR
+    killall wget
+    rm -r`dirname "$(readlink -f "$0")"` 
+    trap - SIGINT SIGTERM # clear the trap
+    kill -- -$$ # Sends SIGTERM to child/sub processes
+}
+
+trap exit_script SIGINT SIGTERM
+
+readopts(){
+    while getopts ":d:" o; do
+        case "${o}" in
+            l) # depth
+                DEPTH=${OPTARG}
+                ;;
+            r) # include resources
+                RESOUR=${OPTARG}
+                ;;
+            p) # use PCRE
+                PCRE=1
+                ;;
+            P) # use POSIXRE
+                POSIXRE=1
+                ;;
+            *)
+                usage
+                ;;
+        esac
+    done
+    PATTERN=${@:$OPTIND:1}
+    URL=${@:$OPTIND+1:2}
+}
+
+readopts "$@"
+
+if [[ -z "$PATTERN" || -z "$URL" ]]; then
+    usage
+fi
+
+if [ -z $DEPTH ]; then
+    DEPTH=5
+fi
+
+wget -qr $URL &
+sleep 0.01
+cd *.* && WGET_DIR=`pwd | xargs basename`
+find .|entr grep $PATTERN /_
